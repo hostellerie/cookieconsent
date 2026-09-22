@@ -99,6 +99,7 @@ jobs:
           export SOURCE_DATE_EPOCH
           find "$BUILD_DIR/cookieconsent" -exec touch -d "@$SOURCE_DATE_EPOCH" {} +
 
+          rm -f "$GITHUB_WORKSPACE"/dist/cookieconsent-*.zip
           rm -f "$ARCHIVE"
           (
             cd "$BUILD_DIR"
