@@ -1,34 +1,72 @@
 # Release notes
 
-## Cookie Consent 1.1.0 — Unreleased
+## Cookie Consent 1.3.0 — Unreleased
 
-Cookie Consent 1.1.0 re-establishes the old 2015 plugin as a maintainable Geeklog package and prepares it for the current Geeklog interoperability architecture.
+Cookie Consent 1.3.0 combines the original stabilization work with the consent-engine and ecosystem-integration work previously planned for 1.2.x and 1.3.x.
 
-### Changed
+### Consent engine
 
-- Rebuilt the repository using the standard Geeklog plugin source layout.
-- Raised the declared minimum Geeklog version to 2.1.1 while keeping the transition target through Geeklog 2.2.2.
-- Kept code compatible with PHP 5.6–8.1.
-- Added a Geeklog configuration group for logged-in-user display, privacy URL and acknowledgement lifetime.
-- Added a real administration/status page with direct access to configuration.
-- The banner is shown to all visitors by default; legacy anonymous-only behavior remains configurable.
-- JavaScript options are now passed through JSON serialization instead of string concatenation.
-- Upgrade handling now initializes/repairs configuration before recording the new plugin version.
+- Replaces the historical acknowledgement-only Silktide behavior with a self-hosted category-based consent interface.
+- Adds explicit **Accept all**, **Reject optional** and **Preferences** actions.
+- Adds Necessary, Analytics and Advertising categories.
+- Necessary remains always active; optional categories can be enabled/disabled by the administrator.
+- Adds a permanent **Manage cookies** button so visitors can revise their choice.
+- Adds consent policy versioning: changing the version requires a new choice.
+- Stores the current choice client-side in `cookieconsent_preferences`.
+- Detects the historical `cookieconsent_dismissed` cookie but does not reinterpret it as category consent.
+- Removes the legacy acknowledgement cookie once a new explicit choice is saved.
 
-### Interoperability
+### Controlled scripts
 
-- Added `plugin_getcapabilities_cookieconsent()`.
-- Added read-only `consent.status` service.
-- Added read-only `consent.policy.read` service.
-- Added admin-only `dashboard.summary` for generic Eclipse dashboard discovery.
-- The same contracts are reusable by Agent, Hub and future consumers; none of them is a plugin dependency.
+- Adds `type="text/plain" data-cookieconsent="analytics|advertising"` integration.
+- Adds `data-cookieconsent-src` for remote scripts so they are not fetched before consent.
+- Adds the PHP helper `cookieconsent_script_attributes()`.
+- Activates allowed scripts after the initial choice.
+- Reloads the page when an existing choice is changed, allowing revocation to take effect from the next document load.
 
-### Documentation and safety
+### Browser integration
 
-- Added README, roadmap, release notes and a static `plugin.json` manifest.
-- Documented multisite/shared-files behavior and transition-safe defaults.
-- Explicitly documented that the bundled historical Silktide engine is notice-only and does not block/category-control third-party cookies before acknowledgement.
+Adds `window.GeeklogCookieConsent` with preference, consent, activation and diagnostic methods.
 
-### Upgrade note
+Adds browser events:
 
-The historical `cookieconsent_dismissed=yes` cookie remains recognized by the bundled front-end library. Version 1.1.0 does not reinterpret that acknowledgement as granular consent.
+- `cookieconsent:ready`
+- `cookieconsent:change`
+- `cookieconsent:category-activated`
+
+### Geeklog / ecosystem integration
+
+Capabilities now include:
+
+- `consent.status`
+- `consent.policy.read`
+- `consent.categories.read`
+- `consent.integration.read`
+- `consent.diagnostics`
+- `dashboard.summary`
+
+Eclipse receives richer provider-owned metrics and configuration warnings. Agent and Hub can consume the same read-only contracts without plugin-specific SQL.
+
+The plugin also implements Geeklog's native `plugin_configchange_cookieconsent()` callback for administrator configuration lifecycle changes.
+
+### Configuration
+
+Adds:
+
+- consent policy version;
+- Analytics category toggle;
+- Advertising category toggle;
+- permanent Manage cookies button toggle.
+
+The default consent lifetime is 180 days for new installations. Existing configured values are preserved during upgrade.
+
+### Compatibility
+
+- Geeklog 2.1.1 through 2.2.2.
+- PHP 5.6 through 8.1.
+- No custom database tables.
+- No server-side visitor consent history.
+
+### Important integration requirement
+
+Cookie Consent can defer only scripts that are marked as consent-controlled before browser execution. Existing integrations that inject ordinary executable `<script>` tags must be adapted to the documented marker contract.
