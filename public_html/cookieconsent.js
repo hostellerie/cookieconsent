@@ -368,6 +368,36 @@
     document.body.appendChild(manageButton);
   }
 
+  function observeControlledScripts() {
+    if (!window.MutationObserver) {
+      return;
+    }
+
+    var observer = new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var nodes = mutations[i].addedNodes || [];
+        for (var j = 0; j < nodes.length; j++) {
+          var node = nodes[j];
+          if (!node || node.nodeType !== 1) {
+            continue;
+          }
+          if (node.tagName && node.tagName.toLowerCase() === 'script'
+              && node.getAttribute('data-cookieconsent')) {
+            activateScript(node);
+          }
+          if (node.querySelectorAll) {
+            var nested = node.querySelectorAll('script[type="text/plain"][data-cookieconsent]');
+            for (var k = 0; k < nested.length; k++) {
+              activateScript(nested[k]);
+            }
+          }
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
   function getDiagnostics() {
     return {
       policyVersion: policyVersion,
@@ -396,6 +426,8 @@
     } else {
       openPreferences(false);
     }
+
+    observeControlledScripts();
 
     emit('cookieconsent:ready', {
       preferences: current,
