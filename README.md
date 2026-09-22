@@ -1,54 +1,110 @@
 # Cookie Consent plugin for Geeklog
 
-Cookie Consent is a small Geeklog infrastructure plugin that displays a cookie/privacy notice and exposes its status through the shared interoperability conventions documented in `hostellerie/memorandum`.
-
-## Current compatibility target
+Cookie Consent is a self-hosted Geeklog consent-management plugin for the current modernization baseline:
 
 - Geeklog 2.1.1 through 2.2.2
 - PHP 5.6 through 8.1
 
-This is the transition baseline used by the current Geeklog plugin modernization work. Newer-only syntax is intentionally avoided.
+The working branch now implements the functionality originally planned for 1.2.x and 1.3.x and is prepared as **Cookie Consent 1.3.0**.
 
-## Important limitation of 1.1.0
+## Consent model
 
-Version 1.1.0 keeps the historical Silktide Cookie Consent 2 front-end engine so existing sites can migrate without an abrupt behavior change.
+The plugin provides three categories:
 
-That engine is **notice-only**: it records that the visitor dismissed/acknowledged the banner, but it does not itself block, categorize, or defer third-party scripts and cookies before acknowledgement. It must therefore not be described as a complete consent-management platform or as automatic legal compliance.
+- **Necessary** — always active.
+- **Analytics** — optional and configurable.
+- **Advertising** — optional and configurable.
 
-A category-based consent engine and script-control layer are planned separately; see `ROADMAP.md`.
+Visitors can:
 
-## Geeklog package layout
+- accept all optional categories;
+- reject all optional categories;
+- choose categories individually;
+- reopen their preferences at any time through the permanent Manage cookies button.
 
-The repository follows the standard Geeklog plugin source layout used by the modernized plugins:
+The choice is stored client-side in `cookieconsent_preferences` together with the configured policy version. Changing the policy version causes the visitor to be asked again.
 
-```text
-autoinstall.php
-functions.inc
-install_defaults.php
-language/
-admin/
-public_html/
+The historical `cookieconsent_dismissed=yes` acknowledgement is detected but is **never converted into consent**. The visitor is asked to make a new explicit choice, and the historical cookie is removed after the new choice is saved.
+
+## Blocking controlled scripts
+
+Cookie Consent can prevent a third-party script from executing **only when the provider/theme marks that script as consent-controlled before it reaches the browser**.
+
+Inline analytics example:
+
+```html
+<script type="text/plain" data-cookieconsent="analytics">
+  // analytics code
+</script>
 ```
 
-The Geeklog plugin installer copies the plugin root to `plugins/cookieconsent/`, `admin/` to `public_html/admin/plugins/cookieconsent/`, and `public_html/` to `public_html/cookieconsent/`.
+Remote advertising example:
 
-## Configuration
+```html
+<script
+  type="text/plain"
+  data-cookieconsent="advertising"
+  data-cookieconsent-src="https://example.com/ad.js">
+</script>
+```
 
-The plugin adds a Geeklog configuration group with:
+Do not put the remote URL in `src`: use `data-cookieconsent-src` so the browser does not fetch it before consent.
 
-- display to logged-in users;
+PHP providers can also use:
+
+```php
+cookieconsent_script_attributes('analytics');
+cookieconsent_script_attributes('advertising', $remoteUrl);
+```
+
+When the relevant category is granted, the plugin activates the controlled script. If an already granted category is later revoked, the page reloads because previously executed third-party JavaScript cannot be undone safely in-place.
+
+## Browser API and events
+
+The runtime exposes:
+
+```text
+window.GeeklogCookieConsent.openPreferences()
+window.GeeklogCookieConsent.getPreferences()
+window.GeeklogCookieConsent.hasConsent(category)
+window.GeeklogCookieConsent.activateAllowedScripts()
+window.GeeklogCookieConsent.getDiagnostics()
+```
+
+Browser events:
+
+```text
+cookieconsent:ready
+cookieconsent:change
+cookieconsent:category-activated
+```
+
+No visitor consent history is stored in Geeklog database tables by this plugin.
+
+## Geeklog configuration
+
+Configuration includes:
+
+- display for logged-in users;
 - privacy-information URL;
-- acknowledgement lifetime in days.
+- consent lifetime;
+- consent policy version;
+- Analytics category enabled/disabled;
+- Advertising category enabled/disabled;
+- permanent Manage cookies button enabled/disabled.
 
-The administration page provides a configuration button and explicitly reports the current notice-only mode.
+Administrator configuration changes are observed through Geeklog's native `plugin_configchange_cookieconsent()` callback. Individual visitor choices are deliberately not written to the Geeklog log.
 
 ## Shared capabilities
 
-The plugin declares one provider-owned capability set:
+The plugin declares:
 
 ```text
 consent.status
 consent.policy.read
+consent.categories.read
+consent.integration.read
+consent.diagnostics
 dashboard.summary
 ```
 
@@ -59,34 +115,30 @@ service
 infrastructure
 ```
 
-These declarations are intentionally consumer-neutral. Agent, Eclipse, Hub and future consumers can reuse the same provider contract without querying plugin internals or maintaining separate plugin-specific registries.
+These provider-owned contracts can be reused independently by Agent, Eclipse, Hub and future consumers.
 
-### Services
+### Eclipse
 
-`consent.status`
-: Read-only implementation/runtime status. It exposes the banner mode, acknowledgement cookie name, configured lifetime, audience and current-request acknowledgement state.
+`dashboard.summary` reports:
 
-`consent.policy.read`
-: Read-only banner/policy presentation metadata. It does not expose private user data.
+- category-consent mode;
+- current policy version;
+- number of enabled optional categories;
+- consent lifetime;
+- alerts for incomplete configuration.
 
-`dashboard.summary`
-: Admin-only operational summary for Eclipse and other compatible administration dashboards. It reports the legacy mode as a warning and links back to plugin management/configuration.
+### Agent and Hub
 
-## Multisite and shared files
+Read-only services expose policy, categories, diagnostics and the integration contract without exposing visitor-specific history.
 
-The plugin stores no custom database tables or persistent files. Configuration is resolved through the active Geeklog site context. No sibling-site paths or global cross-site state are introduced.
+`consent.integration.read` also exposes the category relationship markers Hub can use to describe relationships between consent categories and cooperating providers without querying private plugin tables.
 
-When shared plugin files are deployed before every site has run the 1.1.0 upgrade, the runtime uses safe defaults when the new configuration values are not yet present. This keeps staggered site upgrades viable.
+## Multisite / shared files
 
-## Security and privacy
+The plugin has no custom tables or persistent files. All server-side configuration is resolved in the active Geeklog site context.
 
-- Administration requires `cookieconsent.admin`.
-- Configuration access is mapped through `config.cookieconsent.tab_main`.
-- Shared services are read-only.
-- The dashboard service re-checks the plugin administration permission.
-- JavaScript options are serialized with `json_encode()` rather than interpolating raw translated/configured values into JavaScript.
-- No consent or visitor history is stored in plugin database tables.
+New code falls back safely when newly introduced configuration keys are missing, so shared plugin files can be deployed before every site has completed its plugin upgrade.
 
-## Origin
+## Compliance scope
 
-The original plugin package dates from 2015 and bundled Silktide Cookie Consent 2 assets. Version 1.1.0 is a stabilization/modernization release rather than a claim that the historical JavaScript library is a modern CMP.
+This plugin provides technical consent controls. Actual legal compliance still depends on how the site classifies integrations, which scripts are correctly placed behind categories, the privacy information presented to visitors, and the applicable jurisdiction.
