@@ -57,17 +57,17 @@ $display .= '<dt>' . cookieconsent_escape($LANG_COOKIECONSENT_1['privacy_url']) 
     . $privacyUrl . '</dd></dl>';
 
 if (!empty($diagnostics['alerts'])) {
-    $display .= '<h2>Diagnostics</h2><ul>';
+    $display .= '<h2>' . cookieconsent_escape($LANG_COOKIECONSENT_1['diagnostics']) . '</h2><ul>';
     foreach ($diagnostics['alerts'] as $alert) {
         $display .= '<li>' . cookieconsent_escape($alert['message']) . '</li>';
     }
     $display .= '</ul>';
 }
 
-$display .= '<h2>Integration contract</h2>';
+$display .= '<h2>' . cookieconsent_escape($LANG_COOKIECONSENT_1['integration_contract']) . '</h2>';
 $display .= '<p><code>&lt;script type="text/plain" data-cookieconsent="analytics"&gt;...&lt;/script&gt;</code></p>';
 $display .= '<p><code>&lt;script type="text/plain" data-cookieconsent="advertising" data-cookieconsent-src="https://example.com/script.js"&gt;&lt;/script&gt;</code></p>';
-$display .= '<p>Browser API: <code>window.GeeklogCookieConsent</code></p>';
+$display .= '<p>' . cookieconsent_escape($LANG_COOKIECONSENT_1['browser_api']) . ': <code>window.GeeklogCookieConsent</code></p>';
 $display .= '<form method="get" action="' . cookieconsent_escape($configUrl) . '">';
 $display .= '<input type="hidden" name="conf_group" value="cookieconsent">';
 $display .= '<p><button type="submit" class="uk-button uk-button-primary">'
