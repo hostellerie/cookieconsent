@@ -92,10 +92,17 @@ jobs:
           cp RELEASE-NOTES.md "$BUILD_DIR/cookieconsent/"
           cp LICENSE "$BUILD_DIR/cookieconsent/"
 
+          # Make the archive reproducible: use the last package-source commit
+          # timestamp for every packaged path, strip extra ZIP metadata and
+          # feed entries to zip in a stable lexical order.
+          SOURCE_DATE_EPOCH=$(git log -1 --format=%ct --             admin language public_html             autoinstall.php functions.inc install_defaults.php             plugin.xml plugin.json README.md ROADMAP.md RELEASE-NOTES.md LICENSE)
+          export SOURCE_DATE_EPOCH
+          find "$BUILD_DIR/cookieconsent" -exec touch -d "@$SOURCE_DATE_EPOCH" {} +
+
           rm -f "$ARCHIVE"
           (
             cd "$BUILD_DIR"
-            zip -r -9 "$ARCHIVE" cookieconsent
+            find cookieconsent -print | LC_ALL=C sort | zip -X -9 "$ARCHIVE" -@
           )
 
           echo "Archive contents:"
