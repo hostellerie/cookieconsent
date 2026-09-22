@@ -72,6 +72,25 @@ function cookieconsent_get_categories()
     );
 }
 
+function cookieconsent_get_privacy_url()
+{
+    $config = cookieconsent_get_config();
+    $url = isset($config['privacy_url']) ? trim((string) $config['privacy_url']) : '';
+
+    if ($url === '') {
+        return '';
+    }
+    if (strpos($url, '/') === 0) {
+        return $url;
+    }
+    if (!filter_var($url, FILTER_VALIDATE_URL)) {
+        return '';
+    }
+
+    $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+    return in_array($scheme, array('http', 'https'), true) ? $url : '';
+}
+
 function cookieconsent_get_policy_version()
 {
     $config = cookieconsent_get_config();
@@ -140,7 +159,7 @@ function cookieconsent_get_runtime_status()
         'policy_version' => $policyVersion,
         'show_logged_in' => cookieconsent_bool_config($config, 'show_logged_in', true),
         'show_manage_button' => cookieconsent_bool_config($config, 'show_manage_button', true),
-        'privacy_url' => isset($config['privacy_url']) ? trim((string) $config['privacy_url']) : '',
+        'privacy_url' => cookieconsent_get_privacy_url(),
         'categories' => cookieconsent_get_categories(),
         'has_choice' => $validConsent,
         'preferences' => $validConsent ? $preferences : array(),
@@ -444,14 +463,16 @@ function service_consent_integration_read_cookieconsent($args, &$output, &$svc_m
 
 function service_consent_diagnostics_cookieconsent($args, &$output, &$svc_msg)
 {
+    global $LANG_COOKIECONSENT_1;
+
     $status = cookieconsent_get_runtime_status();
     $alerts = array();
 
     if ($status['privacy_url'] === '') {
-        $alerts[] = array('id' => 'privacy_url', 'status' => 'warning', 'message' => 'Privacy information URL is not configured.');
+        $alerts[] = array('id' => 'privacy_url', 'status' => 'warning', 'message' => $LANG_COOKIECONSENT_1['diagnostic_privacy_url']);
     }
     if ($status['policy_version'] === '') {
-        $alerts[] = array('id' => 'policy_version', 'status' => 'warning', 'message' => 'Consent policy version is empty.');
+        $alerts[] = array('id' => 'policy_version', 'status' => 'warning', 'message' => $LANG_COOKIECONSENT_1['diagnostic_policy_version']);
     }
 
     $optional = 0;
@@ -461,7 +482,7 @@ function service_consent_diagnostics_cookieconsent($args, &$output, &$svc_msg)
         }
     }
     if ($optional === 0) {
-        $alerts[] = array('id' => 'optional_categories', 'status' => 'info', 'message' => 'No optional consent category is enabled.');
+        $alerts[] = array('id' => 'optional_categories', 'status' => 'info', 'message' => $LANG_COOKIECONSENT_1['diagnostic_categories']);
     }
 
     $output = array(
