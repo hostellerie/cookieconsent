@@ -1,59 +1,76 @@
 # Cookie Consent roadmap
 
-## 1.1.0 — Stabilization and Geeklog modernization
+## 1.1.0 — Geeklog stabilization
 
-Status: **Active**
+Status: **Completed in the 1.3.0 working branch**
 
-- restore the standard Geeklog plugin package tree;
-- support Geeklog 2.1.1–2.2.2 and PHP 5.6–8.1;
-- add Geeklog configuration and a useful administration page;
-- remove anonymous-only behavior by default while preserving an option for legacy deployments;
-- use safe PHP-to-JavaScript serialization;
-- make upgrade/configuration migration explicit and repeatable;
-- declare shared provider capabilities;
-- expose read-only status/policy services for Agent and Hub;
-- expose `dashboard.summary` for Eclipse;
-- document the notice-only limitation instead of implying full consent compliance;
-- verify install, upgrade, enable/disable, uninstall and multisite/shared-files behavior.
+- standard Geeklog plugin package;
+- Geeklog 2.1.1–2.2.2 and PHP 5.6–8.1 transition support;
+- configuration, administration, upgrade and uninstall support;
+- provider-neutral capability declaration;
+- Eclipse dashboard support;
+- multisite/shared-files safe defaults.
 
 ## 1.2.x — Consent engine modernization
 
-Status: **Planned**
+Status: **Implemented in 1.3.0**
 
-- replace the historical Silktide notice engine with a maintained, self-hostable consent implementation;
-- support explicit accept, reject and preference actions;
-- support configurable categories such as necessary, analytics and advertising;
-- defer category-controlled scripts until the relevant choice is granted;
-- provide a permanent “manage consent” entry point;
-- support consent revision/versioning so policy changes can request a new choice;
-- keep all visitor-facing strings in language files;
-- preserve accessible keyboard/screen-reader behavior;
-- provide migration from the historical acknowledgement cookie where appropriate without falsely converting acknowledgement into granular consent.
+- self-hosted category-based consent engine;
+- explicit Accept all, Reject optional and Preferences actions;
+- Necessary, Analytics and Advertising categories;
+- category-controlled script deferral;
+- remote scripts use `data-cookieconsent-src` so they are not fetched before consent;
+- permanent Manage cookies entry point;
+- policy revision/versioning;
+- visitor-facing strings in language files;
+- keyboard-focusable native controls and ARIA dialog semantics;
+- historical acknowledgement cookie detected but never promoted to granular consent;
+- revocation reloads the page so previously granted third-party scripts stay blocked on the next load.
 
 ## 1.3.x — Ecosystem integration
 
-Status: **Planned**
+Status: **Implemented in 1.3.0**
 
-- add bounded diagnostics for detected consent-controlled integrations;
-- expose category/consent configuration through shared provider-neutral read capabilities;
-- allow Hub to report relationships between consent categories and compatible providers without querying their private tables;
-- expose richer Eclipse alerts for incomplete privacy URL/category configuration;
-- define optional lifecycle events for consent-configuration changes, not individual visitor tracking.
+- bounded configuration diagnostics;
+- `consent.categories.read`;
+- `consent.integration.read`;
+- `consent.diagnostics`;
+- richer Eclipse `dashboard.summary`;
+- browser diagnostics for consent-controlled scripts;
+- shared integration markers for Hub/provider relationships;
+- browser events for consent runtime changes;
+- native Geeklog `plugin_configchange_cookieconsent()` handling for administrator configuration lifecycle changes.
+
+## Next stabilization work
+
+Status: **Active**
+
+- validate fresh installation on Geeklog 2.1.1 / PHP 5.6;
+- validate fresh installation on Geeklog 2.2.2 / PHP 8.1+;
+- validate upgrade from the historical plugin;
+- test enable/disable/re-enable and uninstall;
+- test policy-version renewal;
+- test inline and remote controlled scripts for each optional category;
+- test consent revocation and reload;
+- test shared-files staggered upgrades;
+- test Eclipse/Agent/Hub consumption in real installations;
+- audit accessibility with keyboard and screen-reader tooling.
 
 ## 2.0 — Post-migration baseline
 
 Status: **Architectural concept**
 
-After the historical sites have completed the Geeklog 2.2.2 / PHP 8.1 migration:
+After historical sites complete migration to Geeklog 2.2.2 / PHP 8.1+:
 
-- raise the minimum runtime baseline to Geeklog 2.2.2 and PHP 8.1+;
-- remove transition compatibility code that is no longer needed;
-- evaluate modern browser privacy APIs and current consent standards at that time;
-- keep consent state owned by this provider and consumed through shared capabilities rather than consumer-specific APIs.
+- raise the runtime baseline;
+- remove transition compatibility code;
+- reassess current browser privacy APIs and consent standards;
+- preserve provider ownership and shared capabilities.
 
 ## Non-goals
 
-- storing marketing profiles or consent analytics by default;
-- making Agent, Eclipse or Hub mandatory dependencies;
-- claiming that a banner alone guarantees regulatory compliance;
-- adding direct dependencies on a specific advertising or analytics provider.
+- storing visitor marketing profiles;
+- server-side consent analytics by default;
+- making Agent, Eclipse or Hub dependencies;
+- pretending unmarked third-party scripts can be blocked after they have already executed;
+- claiming technical controls alone guarantee regulatory compliance.
