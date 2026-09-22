@@ -42,7 +42,13 @@ $LANG_COOKIECONSENT_1 = array(
     'dashboard_mode' => 'Mode de consentement',
     'dashboard_expiry' => 'Durée en jours',
     'dashboard_policy_version' => 'Version de politique',
-    'dashboard_categories' => 'Catégories optionnelles'
+    'dashboard_categories' => 'Catégories optionnelles',
+    'diagnostics' => 'Diagnostics',
+    'integration_contract' => 'Contrat d’intégration',
+    'browser_api' => 'API navigateur',
+    'diagnostic_privacy_url' => 'L’URL des informations de confidentialité n’est pas configurée.',
+    'diagnostic_policy_version' => 'La version de la politique de consentement est vide.',
+    'diagnostic_categories' => 'Aucune catégorie de consentement optionnelle n’est activée.'
 );
 
 $LANG_configsections['cookieconsent'] = array('label' => 'Cookie Consent', 'title' => 'Configuration de Cookie Consent');
