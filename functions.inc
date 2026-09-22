@@ -33,23 +33,144 @@ function cookieconsent_escape($value)
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
+function cookieconsent_bool_config($config, $name, $default)
+{
+    if (!array_key_exists($name, $config)) {
+        return (bool) $default;
+    }
+    return !empty($config[$name]);
+}
+
+function cookieconsent_get_categories()
+{
+    global $LANG_COOKIECONSENT_1;
+
+    $config = cookieconsent_get_config();
+
+    return array(
+        'necessary' => array(
+            'id' => 'necessary',
+            'label' => $LANG_COOKIECONSENT_1['category_necessary'],
+            'description' => $LANG_COOKIECONSENT_1['category_necessary_desc'],
+            'required' => true,
+            'enabled' => true
+        ),
+        'analytics' => array(
+            'id' => 'analytics',
+            'label' => $LANG_COOKIECONSENT_1['category_analytics'],
+            'description' => $LANG_COOKIECONSENT_1['category_analytics_desc'],
+            'required' => false,
+            'enabled' => cookieconsent_bool_config($config, 'analytics_enabled', true)
+        ),
+        'advertising' => array(
+            'id' => 'advertising',
+            'label' => $LANG_COOKIECONSENT_1['category_advertising'],
+            'description' => $LANG_COOKIECONSENT_1['category_advertising_desc'],
+            'required' => false,
+            'enabled' => cookieconsent_bool_config($config, 'advertising_enabled', true)
+        )
+    );
+}
+
+function cookieconsent_get_policy_version()
+{
+    $config = cookieconsent_get_config();
+    $version = isset($config['policy_version']) ? trim((string) $config['policy_version']) : '1';
+    return $version === '' ? '1' : substr($version, 0, 64);
+}
+
+function cookieconsent_get_expiry_days()
+{
+    $config = cookieconsent_get_config();
+    $expiryDays = isset($config['expiry_days']) ? (int) $config['expiry_days'] : 180;
+    if ($expiryDays < 1) {
+        $expiryDays = 180;
+    }
+    if ($expiryDays > 730) {
+        $expiryDays = 730;
+    }
+    return $expiryDays;
+}
+
+function cookieconsent_read_preferences_cookie()
+{
+    if (empty($_COOKIE['cookieconsent_preferences'])) {
+        return array();
+    }
+
+    $raw = rawurldecode((string) $_COOKIE['cookieconsent_preferences']);
+    $data = json_decode($raw, true);
+    if (!is_array($data)) {
+        return array();
+    }
+
+    $categories = cookieconsent_get_categories();
+    $normalized = array(
+        'version' => isset($data['version']) ? (string) $data['version'] : '',
+        'necessary' => true,
+        'analytics' => false,
+        'advertising' => false,
+        'updated' => isset($data['updated']) ? (int) $data['updated'] : 0
+    );
+
+    foreach (array('analytics', 'advertising') as $id) {
+        if (!empty($categories[$id]['enabled'])) {
+            $normalized[$id] = !empty($data[$id]);
+        }
+    }
+
+    return $normalized;
+}
+
 function cookieconsent_get_runtime_status()
 {
     $config = cookieconsent_get_config();
-    $expiryDays = isset($config['expiry_days']) ? (int) $config['expiry_days'] : 365;
-    if ($expiryDays < 1) {
-        $expiryDays = 365;
-    }
+    $preferences = cookieconsent_read_preferences_cookie();
+    $policyVersion = cookieconsent_get_policy_version();
+    $validConsent = !empty($preferences)
+        && isset($preferences['version'])
+        && (string) $preferences['version'] === $policyVersion;
 
     return array(
-        'schema' => 1,
-        'mode' => 'notice-only',
-        'cookie_name' => 'cookieconsent_dismissed',
-        'expiry_days' => $expiryDays,
-        'show_logged_in' => !isset($config['show_logged_in']) || !empty($config['show_logged_in']),
+        'schema' => 2,
+        'mode' => 'category-consent',
+        'cookie_name' => 'cookieconsent_preferences',
+        'legacy_cookie_name' => 'cookieconsent_dismissed',
+        'expiry_days' => cookieconsent_get_expiry_days(),
+        'policy_version' => $policyVersion,
+        'show_logged_in' => cookieconsent_bool_config($config, 'show_logged_in', true),
+        'show_manage_button' => cookieconsent_bool_config($config, 'show_manage_button', true),
         'privacy_url' => isset($config['privacy_url']) ? trim((string) $config['privacy_url']) : '',
-        'acknowledged' => isset($_COOKIE['cookieconsent_dismissed']) && $_COOKIE['cookieconsent_dismissed'] === 'yes'
+        'categories' => cookieconsent_get_categories(),
+        'has_choice' => $validConsent,
+        'preferences' => $validConsent ? $preferences : array(),
+        'legacy_acknowledgement' => isset($_COOKIE['cookieconsent_dismissed'])
+            && $_COOKIE['cookieconsent_dismissed'] === 'yes'
     );
+}
+
+/**
+ * Attributes for a consent-controlled script.
+ *
+ * Providers can render:
+ *   <script type="text/plain" data-cookieconsent="analytics">...</script>
+ *
+ * For remote scripts use data-cookieconsent-src instead of src so browsers do
+ * not fetch the resource before the category is granted.
+ */
+function cookieconsent_script_attributes($category, $src = '')
+{
+    $category = strtolower(trim((string) $category));
+    if (!in_array($category, array('analytics', 'advertising'), true)) {
+        return '';
+    }
+
+    $attributes = 'type="text/plain" data-cookieconsent="' . cookieconsent_escape($category) . '"';
+    if ($src !== '') {
+        $attributes .= ' data-cookieconsent-src="' . cookieconsent_escape($src) . '"';
+    }
+
+    return $attributes;
 }
 
 function plugin_getadminoption_cookieconsent()
@@ -75,14 +196,16 @@ function plugin_geticon_cookieconsent()
 
 function plugin_getversion_cookieconsent()
 {
-    return '1.1.0';
+    return '1.3.0';
 }
 
 function plugin_chkVersion_cookieconsent()
 {
     global $_CONF;
+
     require_once $_CONF['path'] . 'plugins/cookieconsent/autoinstall.php';
     $instParms = plugin_autoinstall_cookieconsent('cookieconsent');
+
     return $instParms['info']['pi_version'];
 }
 
@@ -97,7 +220,10 @@ function plugin_upgrade_cookieconsent()
         return true;
     }
     if ($installedVersion === '' || version_compare($installedVersion, $codeVersion, '>')) {
-        COM_errorLog('Cookie Consent Plugin: unsupported upgrade direction from ' . $installedVersion . ' to ' . $codeVersion . '.');
+        COM_errorLog(
+            'Cookie Consent Plugin: unsupported upgrade direction from '
+            . $installedVersion . ' to ' . $codeVersion . '.'
+        );
         return false;
     }
 
@@ -126,7 +252,10 @@ function plugin_upgrade_cookieconsent()
         return false;
     }
 
-    COM_errorLog('Cookie Consent Plugin: upgrade completed from ' . $installedVersion . ' to ' . $codeVersion . '.');
+    COM_errorLog(
+        'Cookie Consent Plugin: upgrade completed from '
+        . $installedVersion . ' to ' . $codeVersion . '.'
+    );
     return true;
 }
 
@@ -142,12 +271,30 @@ function plugin_autouninstall_cookieconsent()
 }
 
 /**
- * Legacy banner integration.
+ * Native Geeklog configuration lifecycle callback.
  *
- * Version 1.1.0 intentionally keeps the existing Silktide notice engine for
- * compatibility. It records acknowledgement but does not block or categorize
- * third-party cookies before acknowledgement. See ROADMAP.md.
+ * Individual visitor choices are deliberately not logged or emitted here.
+ * Only administrator configuration changes are recorded.
  */
+function plugin_configchange_cookieconsent($group, $changes = array())
+{
+    global $_COOKIECONSENT_CONF;
+
+    if ($group !== 'cookieconsent') {
+        return;
+    }
+
+    $_COOKIECONSENT_CONF = null;
+    cookieconsent_get_config(true);
+
+    if (is_array($changes) && count($changes) > 0) {
+        COM_errorLog(
+            'Cookie Consent Plugin: configuration changed: '
+            . implode(', ', array_map('strval', $changes))
+        );
+    }
+}
+
 function plugin_getheadercode_cookieconsent()
 {
     global $_CONF, $_SCRIPTS, $LANG_COOKIECONSENT_1;
@@ -157,36 +304,67 @@ function plugin_getheadercode_cookieconsent()
         return '';
     }
 
-    $options = array(
-        'message' => $LANG_COOKIECONSENT_1['message'],
-        'dismiss' => $LANG_COOKIECONSENT_1['dismiss'],
-        'learnMore' => $LANG_COOKIECONSENT_1['learnmore'],
-        'theme' => $_CONF['site_url'] . '/cookieconsent/styles/cookieconsent.css',
-        'expiryDays' => $status['expiry_days']
-    );
-    if ($status['privacy_url'] !== '') {
-        $options['link'] = $status['privacy_url'];
+    $categories = array();
+    foreach ($status['categories'] as $id => $category) {
+        if (!$category['enabled']) {
+            continue;
+        }
+        $categories[$id] = array(
+            'id' => $id,
+            'label' => $category['label'],
+            'description' => $category['description'],
+            'required' => $category['required']
+        );
     }
+
+    $options = array(
+        'cookieName' => $status['cookie_name'],
+        'legacyCookieName' => $status['legacy_cookie_name'],
+        'policyVersion' => $status['policy_version'],
+        'expiryDays' => $status['expiry_days'],
+        'privacyUrl' => $status['privacy_url'],
+        'showManageButton' => $status['show_manage_button'],
+        'categories' => $categories,
+        'strings' => array(
+            'title' => $LANG_COOKIECONSENT_1['dialog_title'],
+            'message' => $LANG_COOKIECONSENT_1['message'],
+            'acceptAll' => $LANG_COOKIECONSENT_1['accept_all'],
+            'rejectOptional' => $LANG_COOKIECONSENT_1['reject_optional'],
+            'preferences' => $LANG_COOKIECONSENT_1['preferences'],
+            'savePreferences' => $LANG_COOKIECONSENT_1['save_preferences'],
+            'manage' => $LANG_COOKIECONSENT_1['manage_preferences'],
+            'privacy' => $LANG_COOKIECONSENT_1['learnmore'],
+            'required' => $LANG_COOKIECONSENT_1['always_active'],
+            'close' => $LANG_COOKIECONSENT_1['close'],
+            'legacyNotice' => $LANG_COOKIECONSENT_1['legacy_choice_notice']
+        )
+    );
 
     $json = json_encode($options, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     if ($json === false) {
         return '';
     }
 
-    $inline = 'window.cookieconsent_options = ' . $json . ';';
+    $inline = 'window.geeklogCookieConsentOptions = ' . $json . ';';
+    $cssUrl = $_CONF['site_url'] . '/cookieconsent/styles/cookieconsent.css';
+    $jsUrl = $_CONF['site_url'] . '/cookieconsent/cookieconsent.js';
 
-    if (isset($_SCRIPTS) && is_object($_SCRIPTS)
-        && method_exists($_SCRIPTS, 'setJavaScript')
-        && method_exists($_SCRIPTS, 'setJavaScriptFile')) {
-        $_SCRIPTS->setJavaScript($inline, false);
-        $_SCRIPTS->setJavaScriptFile('cookieconsent', '/cookieconsent/cookieconsent.js', true);
-        return '';
+    if (isset($_SCRIPTS) && is_object($_SCRIPTS)) {
+        if (method_exists($_SCRIPTS, 'setCSSFile')) {
+            $_SCRIPTS->setCSSFile('cookieconsent', $cssUrl);
+        }
+        if (method_exists($_SCRIPTS, 'setJavaScript')) {
+            $_SCRIPTS->setJavaScript($inline, false);
+        }
+        if (method_exists($_SCRIPTS, 'setJavaScriptFile')) {
+            $_SCRIPTS->setJavaScriptFile('cookieconsent', '/cookieconsent/cookieconsent.js', true);
+            return '';
+        }
     }
 
-    return '<script type="text/javascript">' . $inline . '</script>'
-        . '<script type="text/javascript" src="'
-        . cookieconsent_escape($_CONF['site_url'] . '/cookieconsent/cookieconsent.js')
-        . '"></script>';
+    return '<link rel="stylesheet" type="text/css" href="' . cookieconsent_escape($cssUrl) . '">'
+        . '<script type="text/javascript">' . $inline . '</script>'
+        . '<script type="text/javascript" src="' . cookieconsent_escape($jsUrl) . '"></script>';
 }
 
 function plugin_getcapabilities_cookieconsent()
@@ -197,6 +375,9 @@ function plugin_getcapabilities_cookieconsent()
         'capabilities' => array(
             'consent.status',
             'consent.policy.read',
+            'consent.categories.read',
+            'consent.integration.read',
+            'consent.diagnostics',
             'dashboard.summary'
         )
     );
@@ -215,13 +396,83 @@ function service_consent_policy_read_cookieconsent($args, &$output, &$svc_msg)
 
     $status = cookieconsent_get_runtime_status();
     $output = array(
-        'schema' => 1,
+        'schema' => 2,
         'mode' => $status['mode'],
         'message' => $LANG_COOKIECONSENT_1['message'],
-        'dismiss_label' => $LANG_COOKIECONSENT_1['dismiss'],
-        'learn_more_label' => $LANG_COOKIECONSENT_1['learnmore'],
         'privacy_url' => $status['privacy_url'],
-        'expiry_days' => $status['expiry_days']
+        'policy_version' => $status['policy_version'],
+        'expiry_days' => $status['expiry_days'],
+        'categories' => array_values($status['categories'])
+    );
+    $svc_msg = '';
+    return true;
+}
+
+function service_consent_categories_read_cookieconsent($args, &$output, &$svc_msg)
+{
+    $output = array(
+        'schema' => 1,
+        'categories' => array_values(cookieconsent_get_categories())
+    );
+    $svc_msg = '';
+    return true;
+}
+
+function service_consent_integration_read_cookieconsent($args, &$output, &$svc_msg)
+{
+    $output = array(
+        'schema' => 1,
+        'controlled_script_contract' => array(
+            'inline' => '<script type="text/plain" data-cookieconsent="analytics">...</script>',
+            'remote' => '<script type="text/plain" data-cookieconsent="advertising" data-cookieconsent-src="https://example.invalid/script.js"></script>',
+            'categories' => array('analytics', 'advertising')
+        ),
+        'browser_api' => 'window.GeeklogCookieConsent',
+        'browser_events' => array(
+            'cookieconsent:ready',
+            'cookieconsent:change',
+            'cookieconsent:category-activated'
+        ),
+        'relationships' => array(
+            array('category' => 'analytics', 'marker' => 'data-cookieconsent="analytics"'),
+            array('category' => 'advertising', 'marker' => 'data-cookieconsent="advertising"')
+        )
+    );
+    $svc_msg = '';
+    return true;
+}
+
+function service_consent_diagnostics_cookieconsent($args, &$output, &$svc_msg)
+{
+    $status = cookieconsent_get_runtime_status();
+    $alerts = array();
+
+    if ($status['privacy_url'] === '') {
+        $alerts[] = array('id' => 'privacy_url', 'status' => 'warning', 'message' => 'Privacy information URL is not configured.');
+    }
+    if ($status['policy_version'] === '') {
+        $alerts[] = array('id' => 'policy_version', 'status' => 'warning', 'message' => 'Consent policy version is empty.');
+    }
+
+    $optional = 0;
+    foreach ($status['categories'] as $category) {
+        if (!$category['required'] && $category['enabled']) {
+            $optional++;
+        }
+    }
+    if ($optional === 0) {
+        $alerts[] = array('id' => 'optional_categories', 'status' => 'info', 'message' => 'No optional consent category is enabled.');
+    }
+
+    $output = array(
+        'schema' => 1,
+        'status' => count($alerts) > 0 ? 'warning' : 'ok',
+        'policy_version' => $status['policy_version'],
+        'optional_categories' => $optional,
+        'privacy_url_configured' => $status['privacy_url'] !== '',
+        'manage_button_enabled' => $status['show_manage_button'],
+        'legacy_acknowledgement_present' => $status['legacy_acknowledgement'],
+        'alerts' => $alerts
     );
     $svc_msg = '';
     return true;
@@ -240,26 +491,41 @@ function service_dashboard_summary_cookieconsent($args, &$output, &$svc_msg)
     }
 
     $status = cookieconsent_get_runtime_status();
-    $configUrl = $_CONF['site_admin_url'] . '/configuration.php?conf_group=cookieconsent';
+    $diagnostics = array();
+    $diagnosticMessage = '';
+    service_consent_diagnostics_cookieconsent(array(), $diagnostics, $diagnosticMessage);
+
+    $enabledOptional = 0;
+    foreach ($status['categories'] as $category) {
+        if (!$category['required'] && $category['enabled']) {
+            $enabledOptional++;
+        }
+    }
+
+    $alerts = isset($diagnostics['alerts']) ? $diagnostics['alerts'] : array();
+    foreach ($alerts as $index => $alert) {
+        $alerts[$index]['url'] = $_CONF['site_admin_url'] . '/plugins/cookieconsent/index.php';
+    }
 
     $output = array(
         'schema' => 1,
-        'status' => 'warning',
+        'status' => empty($alerts) ? 'ok' : 'warning',
         'metrics' => array(
-            array('id' => 'mode', 'label' => $LANG_COOKIECONSENT_1['dashboard_mode'], 'value' => $LANG_COOKIECONSENT_1['mode_notice_only']),
+            array('id' => 'mode', 'label' => $LANG_COOKIECONSENT_1['dashboard_mode'], 'value' => $LANG_COOKIECONSENT_1['mode_category_consent']),
+            array('id' => 'policy_version', 'label' => $LANG_COOKIECONSENT_1['dashboard_policy_version'], 'value' => $status['policy_version']),
+            array('id' => 'optional_categories', 'label' => $LANG_COOKIECONSENT_1['dashboard_categories'], 'value' => $enabledOptional),
             array('id' => 'expiry_days', 'label' => $LANG_COOKIECONSENT_1['dashboard_expiry'], 'value' => $status['expiry_days'])
         ),
-        'alerts' => array(
-            array(
-                'id' => 'notice_only',
-                'status' => 'warning',
-                'message' => $LANG_COOKIECONSENT_1['notice_only_warning'],
-                'url' => $_CONF['site_admin_url'] . '/plugins/cookieconsent/index.php'
-            )
-        ),
+        'alerts' => $alerts,
         'links' => array(
-            array('label' => $LANG_COOKIECONSENT_1['manage'], 'url' => $_CONF['site_admin_url'] . '/plugins/cookieconsent/index.php'),
-            array('label' => $LANG_COOKIECONSENT_1['configuration'], 'url' => $configUrl)
+            array(
+                'label' => $LANG_COOKIECONSENT_1['manage'],
+                'url' => $_CONF['site_admin_url'] . '/plugins/cookieconsent/index.php'
+            ),
+            array(
+                'label' => $LANG_COOKIECONSENT_1['configuration'],
+                'url' => $_CONF['site_admin_url'] . '/configuration.php?conf_group=cookieconsent'
+            )
         ),
         'updated' => time()
     );
