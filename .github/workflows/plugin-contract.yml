@@ -1,0 +1,106 @@
+name: Geeklog plugin contract checks
+
+on:
+  push:
+    branches:
+      - modernize-1.1.0
+    paths-ignore:
+      - 'dist/**'
+  pull_request:
+    paths-ignore:
+      - 'dist/**'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate metadata consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          XML_VERSION=$(sed -n 's:.*<pi_version>\(.*\)</pi_version>.*:\1:p' plugin.xml | head -n 1)
+          PHP_VERSION_DECL=$(sed -n "s/.*'pi_version' => '\([^']*\)'.*/\1/p" autoinstall.php | head -n 1)
+          FUNCTION_VERSION=$(sed -n "s/.*return '\([0-9][^']*\)';.*/\1/p" functions.inc | head -n 1)
+
+          test "$XML_VERSION" = "$PHP_VERSION_DECL"
+          test "$XML_VERSION" = "$FUNCTION_VERSION"
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("plugin.json").read_text())
+          assert data["schema"] == 1
+          assert data["id"] == "cookieconsent"
+          assert data["requires"]["geeklog"] == "2.1.1"
+          assert data["requires"]["php"] == "5.6.0"
+          PY
+
+      - name: Validate Geeklog lifecycle callbacks
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'function plugin_autoinstall_cookieconsent' autoinstall.php
+          grep -q 'function plugin_load_configuration_cookieconsent' autoinstall.php
+          grep -q 'function plugin_compatible_with_this_version_cookieconsent' autoinstall.php
+          grep -q 'function plugin_upgrade_cookieconsent' functions.inc
+          grep -q 'function plugin_autouninstall_cookieconsent' functions.inc
+          grep -q 'function plugin_getversion_cookieconsent' functions.inc
+          grep -q 'function plugin_chkVersion_cookieconsent' functions.inc
+          grep -q 'function plugin_getheadercode_cookieconsent' functions.inc
+          grep -q 'function plugin_getadminoption_cookieconsent' functions.inc
+          grep -q 'function plugin_configchange_cookieconsent' functions.inc
+          grep -q 'function cookieconsent_script_attributes' functions.inc
+
+      - name: Validate interoperability contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'function plugin_getcapabilities_cookieconsent' functions.inc
+          grep -q "'consent.status'" functions.inc
+          grep -q "'consent.policy.read'" functions.inc
+          grep -q "'consent.categories.read'" functions.inc
+          grep -q "'consent.integration.read'" functions.inc
+          grep -q "'consent.diagnostics'" functions.inc
+          grep -q "'dashboard.summary'" functions.inc
+          grep -q 'function service_consent_status_cookieconsent' functions.inc
+          grep -q 'function service_consent_policy_read_cookieconsent' functions.inc
+          grep -q 'function service_consent_categories_read_cookieconsent' functions.inc
+          grep -q 'function service_consent_integration_read_cookieconsent' functions.inc
+          grep -q 'function service_consent_diagnostics_cookieconsent' functions.inc
+          grep -q 'function service_dashboard_summary_cookieconsent' functions.inc
+
+      - name: Validate installable tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f admin/index.php
+          test -f admin/images/cookieconsent.png
+          test -f public_html/index.php
+          test -f public_html/cookieconsent.js
+          test -f public_html/styles/cookieconsent.css
+          test -f language/english.php
+          test -f language/french_france_utf-8.php
+          test -f install_defaults.php
+          test -f README.md
+          test -f ROADMAP.md
+          test -f RELEASE-NOTES.md
+
+      - name: Validate consent runtime JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public_html/cookieconsent.js
+          grep -q 'data-cookieconsent' public_html/cookieconsent.js
+          grep -q 'window.GeeklogCookieConsent' public_html/cookieconsent.js
+
+      - name: Check transition compatibility declarations
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "'pi_gl_version' => '2.1.1'" autoinstall.php
+          grep -q "version_compare(PHP_VERSION, '5.6.0', '>=')" autoinstall.php
+          grep -q 'Geeklog 2.1.1 through 2.2.2' README.md
+          grep -q 'PHP 5.6 through 8.1' README.md
