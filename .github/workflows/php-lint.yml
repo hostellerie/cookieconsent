@@ -2,7 +2,11 @@ name: PHP lint
 
 on:
   push:
+    paths-ignore:
+      - 'dist/**'
   pull_request:
+    paths-ignore:
+      - 'dist/**'
 
 jobs:
   lint:
