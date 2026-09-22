@@ -42,7 +42,13 @@ $LANG_COOKIECONSENT_1 = array(
     'dashboard_mode' => 'Consent mode',
     'dashboard_expiry' => 'Consent days',
     'dashboard_policy_version' => 'Policy version',
-    'dashboard_categories' => 'Optional categories'
+    'dashboard_categories' => 'Optional categories',
+    'diagnostics' => 'Diagnostics',
+    'integration_contract' => 'Integration contract',
+    'browser_api' => 'Browser API',
+    'diagnostic_privacy_url' => 'Privacy information URL is not configured.',
+    'diagnostic_policy_version' => 'Consent policy version is empty.',
+    'diagnostic_categories' => 'No optional consent category is enabled.'
 );
 
 $LANG_configsections['cookieconsent'] = array('label' => 'Cookie Consent', 'title' => 'Cookie Consent Configuration');
