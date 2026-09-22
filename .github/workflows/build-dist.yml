@@ -1,0 +1,149 @@
+name: Build installable Cookie Consent archive
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - modernize-1.1.0
+    tags:
+      - 'v*'
+    paths-ignore:
+      - 'dist/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cookieconsent-build-dist-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-dist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read plugin version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's:.*<pi_version>\(.*\)</pi_version>.*:\1:p' plugin.xml | head -n 1)
+          if [ -z "$VERSION" ]; then
+            echo "Unable to read pi_version from plugin.xml" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building Cookie Consent $VERSION"
+
+      - name: Verify package source
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            admin
+            language
+            public_html
+            autoinstall.php
+            functions.inc
+            install_defaults.php
+            plugin.xml
+            plugin.json
+            README.md
+            ROADMAP.md
+            RELEASE-NOTES.md
+            LICENSE
+          )
+          for path in "${required[@]}"; do
+            if [ ! -e "$path" ]; then
+              echo "Missing required package path: $path" >&2
+              exit 1
+            fi
+          done
+
+      - name: Build Geeklog installable archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.version.outputs.version }}'
+          BUILD_DIR="$RUNNER_TEMP/cookieconsent-package"
+          ARCHIVE="$GITHUB_WORKSPACE/dist/cookieconsent-${VERSION}.zip"
+
+          rm -rf "$BUILD_DIR"
+          mkdir -p "$BUILD_DIR/cookieconsent" "$GITHUB_WORKSPACE/dist"
+
+          cp -a admin "$BUILD_DIR/cookieconsent/"
+          cp -a language "$BUILD_DIR/cookieconsent/"
+          cp -a public_html "$BUILD_DIR/cookieconsent/"
+          [ ! -d sql ] || cp -a sql "$BUILD_DIR/cookieconsent/"
+          [ ! -d templates ] || cp -a templates "$BUILD_DIR/cookieconsent/"
+
+          cp autoinstall.php "$BUILD_DIR/cookieconsent/"
+          cp functions.inc "$BUILD_DIR/cookieconsent/"
+          cp install_defaults.php "$BUILD_DIR/cookieconsent/"
+          cp plugin.xml "$BUILD_DIR/cookieconsent/"
+          cp plugin.json "$BUILD_DIR/cookieconsent/"
+          cp README.md "$BUILD_DIR/cookieconsent/"
+          cp ROADMAP.md "$BUILD_DIR/cookieconsent/"
+          cp RELEASE-NOTES.md "$BUILD_DIR/cookieconsent/"
+          cp LICENSE "$BUILD_DIR/cookieconsent/"
+
+          rm -f "$ARCHIVE"
+          (
+            cd "$BUILD_DIR"
+            zip -r -9 "$ARCHIVE" cookieconsent
+          )
+
+          echo "Archive contents:"
+          unzip -l "$ARCHIVE"
+
+          # Geeklog expects one top-level directory named after the plugin.
+          if unzip -Z1 "$ARCHIVE" | grep -Ev '^cookieconsent(/|$)' | grep -q .; then
+            echo "Archive contains paths outside cookieconsent/." >&2
+            exit 1
+          fi
+
+          for required_file in             cookieconsent/autoinstall.php             cookieconsent/functions.inc             cookieconsent/install_defaults.php             cookieconsent/plugin.xml             cookieconsent/plugin.json             cookieconsent/admin/index.php             cookieconsent/public_html/cookieconsent.js; do
+            if ! unzip -Z1 "$ARCHIVE" | grep -qx "$required_file"; then
+              echo "Archive is missing required path: $required_file" >&2
+              exit 1
+            fi
+          done
+
+          # Geeklog 2.2.2 rejects dot-prefixed paths inside plugin archives.
+          if unzip -Z1 "$ARCHIVE" | grep -Eq '(^|/)\.'; then
+            echo "Archive contains a dot-prefixed path, which is not allowed." >&2
+            exit 1
+          fi
+
+      - name: Publish archive as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cookieconsent-${{ steps.version.outputs.version }}
+          path: dist/cookieconsent-${{ steps.version.outputs.version }}.zip
+          if-no-files-found: error
+
+      - name: Commit archive to dist
+        if: startsWith(github.ref, 'refs/heads/')
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.version.outputs.version }}'
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git add "dist/cookieconsent-${VERSION}.zip"
+
+          if git diff --cached --quiet; then
+            echo "dist/cookieconsent-${VERSION}.zip is already up to date."
+            exit 0
+          fi
+
+          git commit -m "Build installable Cookie Consent ${VERSION} archive"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
