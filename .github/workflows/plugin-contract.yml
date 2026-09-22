@@ -7,6 +7,8 @@ on:
     paths-ignore:
       - 'dist/**'
   pull_request:
+    paths-ignore:
+      - 'dist/**'
 
 jobs:
   contract:
