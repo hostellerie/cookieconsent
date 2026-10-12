@@ -15,7 +15,7 @@ function plugin_autoinstall_cookieconsent($pi_name)
             'pi_name' => $piName,
             'pi_display_name' => $displayName,
             'pi_version' => '1.3.0',
-            'pi_gl_version' => '2.1.1',
+            'pi_gl_version' => '2.2.2',
             'pi_homepage' => 'https://github.com/hostellerie/cookieconsent'
         ),
         'groups' => array(
@@ -55,12 +55,12 @@ function plugin_compatible_with_this_version_cookieconsent($pi_name)
     }
 
     if (function_exists('COM_versionCompare')) {
-        if (!COM_versionCompare(VERSION, '2.1.1', '>=')) {
+        if (!COM_versionCompare(VERSION, '2.2.2', '>=')) {
             return false;
         }
-    } elseif (version_compare(VERSION, '2.1.1', '<')) {
+    } elseif (version_compare(VERSION, '2.2.2', '<')) {
         return false;
     }
 
-    return version_compare(PHP_VERSION, '5.6.0', '>=');
+    return version_compare(PHP_VERSION, '5.6.40', '>=');
 }
