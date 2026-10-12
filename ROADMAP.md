@@ -5,7 +5,7 @@
 Status: **Completed in the 1.3.0 working branch**
 
 - standard Geeklog plugin package;
-- Geeklog 2.1.1–2.2.2 and PHP 5.6–8.1 transition support;
+- Geeklog 2.2.2+ and PHP 5.6.40–8.1+ transition support;
 - configuration, administration, upgrade and uninstall support;
 - provider-neutral capability declaration;
 - Eclipse dashboard support;
@@ -45,7 +45,7 @@ Status: **Implemented in 1.3.0**
 
 Status: **Active**
 
-- validate fresh installation on Geeklog 2.1.1 / PHP 5.6;
+- validate fresh installation on Geeklog 2.2.2 / PHP 5.6;
 - validate fresh installation on Geeklog 2.2.2 / PHP 8.1+;
 - validate upgrade from the historical plugin;
 - test enable/disable/re-enable and uninstall;
@@ -74,3 +74,10 @@ After historical sites complete migration to Geeklog 2.2.2 / PHP 8.1+:
 - making Agent, Eclipse or Hub dependencies;
 - pretending unmarked third-party scripts can be blocked after they have already executed;
 - claiming technical controls alone guarantee regulatory compliance.
+
+## Current support decision (October 2026)
+
+- Minimum Geeklog Core: 2.2.2; no new 2.1.1 runtime compatibility work.
+- Minimum PHP: 5.6.40, keeping PHP 5.6 lint and PHP 8.x testing.
+- Google AdSense consent and tag management are explicitly outside Cookie Consent's scope.
+- Remaining release checks target Geeklog 2.2.2 installations, historical plugin-data upgrade, and shared-files multisite safety.
