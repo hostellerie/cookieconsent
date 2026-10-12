@@ -62,11 +62,15 @@ The default consent lifetime is 180 days for new installations. Existing configu
 
 ### Compatibility
 
-- Geeklog 2.1.1 through 2.2.2.
-- PHP 5.6 through 8.1.
+- Geeklog 2.2.2 and later.
+- PHP 5.6.40 through 8.1 and later maintained versions.
 - No custom database tables.
 - No server-side visitor consent history.
 
 ### Important integration requirement
 
 Cookie Consent can defer only scripts that are marked as consent-controlled before browser execution. Existing integrations that inject ordinary executable `<script>` tags must be adapted to the documented marker contract.
+
+### Updated release target (October 2026)
+
+This unreleased version now targets Geeklog 2.2.2+ and PHP 5.6.40+. Compatibility with older Geeklog Core releases is no longer a release goal. Google AdSense is managed independently and is not integrated into Cookie Consent.
