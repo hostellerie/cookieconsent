@@ -34,8 +34,8 @@ jobs:
           data = json.loads(Path("plugin.json").read_text())
           assert data["schema"] == 1
           assert data["id"] == "cookieconsent"
-          assert data["requires"]["geeklog"] == "2.1.1"
-          assert data["requires"]["php"] == "5.6.0"
+          assert data["requires"]["geeklog"] == "2.2.2"
+          assert data["requires"]["php"] == "5.6.40"
           PY
 
       - name: Validate Geeklog lifecycle callbacks
@@ -96,11 +96,11 @@ jobs:
           grep -q 'data-cookieconsent' public_html/cookieconsent.js
           grep -q 'window.GeeklogCookieConsent' public_html/cookieconsent.js
 
-      - name: Check transition compatibility declarations
+      - name: Check current runtime compatibility declarations
         shell: bash
         run: |
           set -euo pipefail
-          grep -q "'pi_gl_version' => '2.1.1'" autoinstall.php
-          grep -q "version_compare(PHP_VERSION, '5.6.0', '>=')" autoinstall.php
-          grep -q 'Geeklog 2.1.1 through 2.2.2' README.md
-          grep -q 'PHP 5.6 through 8.1' README.md
+          grep -q "'pi_gl_version' => '2.2.2'" autoinstall.php
+          grep -q "version_compare(PHP_VERSION, '5.6.40', '>=')" autoinstall.php
+          grep -q 'Geeklog 2.2.2 and later' README.md
+          grep -q 'PHP 5.6.40 through 8.1 and later maintained versions' README.md
