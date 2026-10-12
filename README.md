@@ -2,8 +2,8 @@
 
 Cookie Consent is a self-hosted Geeklog consent-management plugin for the current modernization baseline:
 
-- Geeklog 2.1.1 through 2.2.2
-- PHP 5.6 through 8.1
+- Geeklog 2.2.2 and later
+- PHP 5.6.40 through 8.1 and later maintained versions
 
 The working branch now implements the functionality originally planned for 1.2.x and 1.3.x and is prepared as **Cookie Consent 1.3.0**.
 
@@ -142,3 +142,7 @@ New code falls back safely when newly introduced configuration keys are missing,
 ## Compliance scope
 
 This plugin provides technical consent controls. Actual legal compliance still depends on how the site classifies integrations, which scripts are correctly placed behind categories, the privacy information presented to visitors, and the applicable jurisdiction.
+
+## Current support policy
+
+Minimum Geeklog 2.2.2 and PHP 5.6.40. No Geeklog 2.1.1 runtime support. Google AdSense and its consent configuration are managed independently; this plugin does not alter AdSense tags.
